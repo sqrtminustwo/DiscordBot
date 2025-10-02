@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 import discord
+import urllib.request
+import json
 
 TOKEN_ENV_PATH = "env/token.env"
 load_dotenv(dotenv_path=TOKEN_ENV_PATH)
@@ -16,7 +18,7 @@ LENNERD_TEST_CHANNEL_ID = 1423277829654712462
 
 
 async def mening_over_jef(message):
-    await message.channel.send("Ik haat jef!")
+    await message.channel.send("Ik haat jef!", reference=message)
 
 
 gifs = [
@@ -32,14 +34,44 @@ async def send_gif(message):
     message_format = message.content.split("_")
     if len(message_format) != 2 or not message_format[1].isdigit():
         return
-    await message.channel.send(gifs[int(message_format[1])])
+    await message.channel.send(gifs[int(message_format[1])], reference=message)
 
 
 async def bot_tag(message):
     await message.add_reaction("<:jef_opp:1423005081003102269>")
 
 
-commands = {"mening over jef?": mening_over_jef, BOT_TAG: bot_tag}
+async def tell_a_joke(message):
+    with urllib.request.urlopen(
+        "https://official-joke-api.appspot.com/random_joke"
+    ) as url:
+        data = json.loads(url.read().decode())
+        setup_message = await message.channel.send(data["setup"], reference=message)
+
+        def wait_to_send_punchline(m):
+            return (
+                m.channel == message.channel
+                and m.reference is not None
+                and m.reference.message_id == setup_message.id
+            )
+
+        try:
+            ask_for_punchline = await client.wait_for(
+                "message", check=wait_to_send_punchline, timeout=15
+            )
+            await message.channel.send(data["punchline"], reference=ask_for_punchline)
+        except TimeoutError:
+            await message.channel.send(
+                "Why ask for a joke if you don't want to hear the punchline...",
+                reference=message,
+            )
+
+
+commands = {
+    "mening over jef?": mening_over_jef,
+    BOT_TAG: bot_tag,
+    f"{BOT_TAG} tell a joke": tell_a_joke,
+}
 for i in range(0, len(gifs)):
     commands[f"gif_{i}"] = send_gif
 
