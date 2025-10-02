@@ -11,6 +11,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 client = discord.Client(intents=intents)
+BOT_TAG = "<@1423047868876587039>"
 
 
 @client.event
@@ -21,12 +22,16 @@ async def on_ready():
 @client.event
 async def on_message(message):
     print(message)
+    print(message.content)
 
     if message.author == client.user:
         return
 
     if message.content == "mening over jef?":
         await message.channel.send("Ik haat jef!")
+
+    if BOT_TAG in message.content:
+        await message.add_reaction("<:jef_opp:1423005081003102269>")
 
 
 if TOKEN is not None:
