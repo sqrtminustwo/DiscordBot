@@ -1,8 +1,9 @@
-import os
-from dotenv import load_dotenv
-import discord
-import urllib.request
 import json
+import os
+import urllib.request
+import discord
+from dotenv import load_dotenv
+import re
 
 TOKEN_ENV_PATH = "env/token.env"
 load_dotenv(dotenv_path=TOKEN_ENV_PATH)
@@ -15,9 +16,17 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 BOT_TAG = "<@1423047868876587039>"
 LENNERD_TEST_CHANNEL_ID = 1423277829654712462
+emojies = {
+    "jef_opp": "<:jef_opp:1423005081003102269>",
+    "gunnar": "<:gunnar:1423004268486459492>",
+    "andy": "<:andy:1423004045706006709>",
+    "georgi": "<:georgi:1423270976619020449>",
+    "oliver": "<:oliver:1423004640961757204>",
+    "filip": "<:filip:1423951861362196630>",
+}
 
 
-async def mening_over_jef(message):
+async def meningOverJef(message):
     await message.channel.send("Ik haat jef!", reference=message)
 
 
@@ -30,18 +39,22 @@ gifs = [
 ]
 
 
-async def send_gif(message):
+async def sendGif(message):
     message_format = message.content.split("_")
     if len(message_format) != 2 or not message_format[1].isdigit():
         return
     await message.channel.send(gifs[int(message_format[1])], reference=message)
 
 
-async def bot_tag(message):
-    await message.add_reaction("<:jef_opp:1423005081003102269>")
+async def addReaction(message, emoji_name):
+    await message.add_reaction(emojies[emoji_name])
 
 
-async def tell_a_joke(message):
+async def botTag(message):
+    await addReaction(message, "jef_opp")
+
+
+async def tellAJoke(message):
     with urllib.request.urlopen(
         "https://official-joke-api.appspot.com/random_joke"
     ) as url:
@@ -67,13 +80,40 @@ async def tell_a_joke(message):
             )
 
 
-commands = {
-    "mening over jef?": mening_over_jef,
-    BOT_TAG: bot_tag,
-    f"{BOT_TAG} tell a joke": tell_a_joke,
+# full message should match
+commands_full = {
+    f"{BOT_TAG} mening over jef?": meningOverJef,
+    BOT_TAG: botTag,
+    f"{BOT_TAG} tell a joke": tellAJoke,
 }
 for i in range(0, len(gifs)):
-    commands[f"gif_{i}"] = send_gif
+    commands_full[f"gif_{i}"] = sendGif
+
+
+class Prof:
+    def __init__(self, regex, emoji):
+        self.regex = regex
+        self.emoji = emoji
+
+
+prof_to_emoji = [
+    Prof("^.*(christophe|scholliers|funcprog|haskell).*$", "jef_opp"),
+    Prof("^.*(gunnar|ad|ad2).*$", "gunnar"),
+    Prof("^.*(andy|comnet).*$", "andy"),
+    Prof("^.*(georgi|stat|statistiek).*$", "georgi"),
+    Prof("^.*(oliver|stat|statistiek).*$", "oliver"),
+    Prof("^.*(filip|sysprog).*$", "filip"),
+]
+
+
+async def profEmojiReact(message):
+    for prof in prof_to_emoji:
+        if re.match(prof.regex, message.content):
+            await addReaction(message, prof.emoji)
+
+
+# message should pass the regex
+commands_partial = [profEmojiReact]
 
 
 @client.event
@@ -91,8 +131,11 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content in commands:
-        await commands[message.content](message)
+    if message.content in commands_full:
+        await commands_full[message.content](message)
+
+    for command in commands_partial:
+        await command(message)
 
 
 if TOKEN is not None:
