@@ -1,9 +1,12 @@
 import json
 import os
+import re
 import urllib.request
+import llm
+import data
+
 import discord
 from dotenv import load_dotenv
-import re
 
 TOKEN_ENV_PATH = "env/token.env"
 load_dotenv(dotenv_path=TOKEN_ENV_PATH)
@@ -14,40 +17,21 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 client = discord.Client(intents=intents)
-BOT_TAG = "<@1423047868876587039>"
-LENNERD_TEST_CHANNEL_ID = 1423277829654712462
-emojies = {
-    "jef_opp": "<:jef_opp:1423005081003102269>",
-    "gunnar": "<:gunnar:1423004268486459492>",
-    "andy": "<:andy:1423004045706006709>",
-    "georgi": "<:georgi:1423270976619020449>",
-    "oliver": "<:oliver:1423004640961757204>",
-    "filip": "<:filip:1423951861362196630>",
-}
 
 
 async def meningOverJef(message):
     await message.channel.send("Ik haat jef!", reference=message)
 
 
-gifs = [
-    "https://tenor.com/view/roblox-funny-roblox-suit-roblox-tux-roblox-meme-gif-15378536397008769771",
-    "https://tenor.com/view/gracias-por-su-atencion-gif-con-movimiento-para-power-point-triste-gif-15976180513104321087",
-    "https://tenor.com/view/cat-reaction-michi-triste-crying-cat-reaction-sad-cat-hannicion-gif-17190162121303461099",
-    "https://media.discordapp.net/attachments/1009877926336008293/1026965859467542569/t-1.gif?ex=68df943d&is=68de42bd&hm=6d4a2b3730bdc89c1eee4e47442f4ac861f67521ed7e54fef4d383c5c795323a&",
-    "https://tenor.com/view/cringe-gif-24107071",
-]
-
-
 async def sendGif(message):
     message_format = message.content.split("_")
     if len(message_format) != 2 or not message_format[1].isdigit():
         return
-    await message.channel.send(gifs[int(message_format[1])], reference=message)
+    await message.channel.send(data.gifs[int(message_format[1])], reference=message)
 
 
 async def addReaction(message, emoji_name):
-    await message.add_reaction(emojies[emoji_name])
+    await message.add_reaction(data.emojies[emoji_name])
 
 
 async def botTag(message):
@@ -82,38 +66,18 @@ async def tellAJoke(message):
 
 # full message should match
 commands_full = {
-    f"{BOT_TAG} mening over jef?": meningOverJef,
-    BOT_TAG: botTag,
-    f"{BOT_TAG} tell a joke": tellAJoke,
+    f"{data.BOT_TAG} mening over jef?": meningOverJef,
+    data.BOT_TAG: botTag,
+    f"{data.BOT_TAG} tell a joke": tellAJoke,
 }
-for i in range(0, len(gifs)):
+for i in range(0, len(data.gifs)):
     commands_full[f"gif_{i}"] = sendGif
 
 
-class Prof:
-    def __init__(self, regex, emoji):
-        self.regex = regex
-        self.emoji = emoji
-
-
-prof_to_emoji = [
-    Prof("^.*(christophe|scholliers|funcprog|haskell).*$", "jef_opp"),
-    Prof("^.*(gunnar|ad|ad2).*$", "gunnar"),
-    Prof("^.*(andy|comnet).*$", "andy"),
-    Prof("^.*(georgi|stat|statistiek).*$", "georgi"),
-    Prof("^.*(oliver|stat|statistiek).*$", "oliver"),
-    Prof("^.*(filip|sysprog).*$", "filip"),
-]
-
-
 async def profEmojiReact(message):
-    for prof in prof_to_emoji:
+    for prof in data.prof_to_emoji:
         if re.match(prof.regex, message.content):
             await addReaction(message, prof.emoji)
-
-
-# message should pass the regex
-commands_partial = [profEmojiReact]
 
 
 @client.event
@@ -123,19 +87,29 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
+    print()
+    print(message.author)
     print(message.content)
+    used_command = False
 
-    if TOKEN_NAME == "TOKEN_MAIN" and message.channel.id == LENNERD_TEST_CHANNEL_ID:
+    if (
+        TOKEN_NAME == "TOKEN_MAIN"
+        and message.channel.id == data.LENNERD_TEST_CHANNEL_ID
+    ):
         return
 
     if message.author == client.user:
         return
 
     if message.content in commands_full:
+        used_command = True
         await commands_full[message.content](message)
 
-    for command in commands_partial:
-        await command(message)
+    # for command in commands_partial:
+    #     await command(message)
+
+    if not used_command and message.content.startswith(data.BOT_TAG):
+        await llm.askLLM(message)
 
 
 if TOKEN is not None:
